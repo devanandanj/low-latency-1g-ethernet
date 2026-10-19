@@ -4,8 +4,8 @@
 `default_nettype none
 
 module ethernet_tx (
-    input clk,
-    input reset
+    input logic gmii_rx_clk,
+    input logic reset
 );
 
 endmodule
