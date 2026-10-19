@@ -14,7 +14,7 @@ module ethernet_rx (
     output logic [7:0] m_data,   // data out
     output logic       m_valid,
     output logic       m_bad,    // bad frame
-    output logic       m_last    // marks final byte
+    output logic       m_eof     // marks final byte
 );
 
   localparam logic [31:0] CRC_RESIDUE = 32'hDEBB20E3;
@@ -28,9 +28,6 @@ module ethernet_rx (
 
   states_t state;
 
-  logic [7:0] held_byte;
-  logic held_valid;
-
   logic [31:0] crc_reg;
   logic [31:0] crc_next;
   logic err_seen;
@@ -41,24 +38,22 @@ module ethernet_rx (
       .crc_out    (crc_next)
   );
 
+  assign m_data  = gmii_rxd;
+  assign m_valid = (state == DATA) && gmii_rx_dv;
 
-  always_ff @(posedge gmii_rx_clk) begin : hold_register
+
+  always_ff @(posedge gmii_rx_clk) begin : rx_fsm
     if (reset) begin
       state <= IDLE;
-      held_valid <= 1'b0;
       crc_reg <= 32'hFFFFFFFF;
       err_seen <= 1'b0;
-      m_data <= '0;
-      m_valid <= 1'b0;
-      m_last <= 1'b0;
+      m_eof <= 1'b0;
       m_bad <= 1'b0;
     end else begin
-      m_valid <= 1'b0;
-      m_last  <= 1'b0;
+      m_eof   <= 1'b0;
       m_bad   <= 1'b0;
       case (state)
         IDLE: begin
-          held_valid <= 1'b0;
           crc_reg    <= 32'hFFFFFFFF;
           err_seen   <= 1'b0;
           if (gmii_rx_dv) begin
@@ -75,25 +70,14 @@ module ethernet_rx (
         end
         DATA: begin
           if (gmii_rx_dv) begin
-            if (held_valid) begin
-              m_data  <= held_byte;
-              m_valid <= 1'b1;
-            end
-            held_byte <= gmii_rxd;
-            held_valid <= 1'b1;
             crc_reg <= crc_next;
             if (gmii_rx_er) err_seen <= 1'b1;
           end else begin
-            if (held_valid) begin
-              m_data  <= held_byte;
-              m_valid <= 1'b1;
-              m_last  <= 1'b1;
+              m_eof   <= 1'b1;
               m_bad   <= (crc_reg != CRC_RESIDUE) || err_seen;
+              state <= IDLE;
             end
-            held_valid <= 1'b0;
-            state <= IDLE;
           end
-        end
         DROP: begin
           if (!gmii_rx_dv) state <= IDLE;
         end
