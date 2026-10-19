@@ -1,3 +1,5 @@
+.rules.verible_lint
+.vscode/
 notes/
 .venv/
 *sim_build/
