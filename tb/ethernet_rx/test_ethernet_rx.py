@@ -1,4 +1,6 @@
 import cocotb
+import zlib
+import random
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
@@ -20,6 +22,14 @@ async def send_byte(dut, dv, byte):
     await RisingEdge(dut.gmii_rx_clk)
     await Timer(1, units="ns")
     return int(dut.state.value)
+
+async def send_and_collect(dut, dv, byte, recieved, lasts):
+    state = await send_byte(dut, dv, byte)
+    if int(dut.m_valid.value) == 1:
+        recieved.append(int(dut.m_data.value))
+        lasts.append(int(dut.m_last.value))
+    return state
+
 
 @cocotb.test()
 async def test_good_frame(dut):
@@ -117,3 +127,77 @@ async def test_reset_mid_frame(dut):
     await setup(dut)   # reset while rx_dv is still... re-driven to 0 by setup
     state = int(dut.state.value)
     assert state == IDLE, f"after reset: state = {state}"
+
+@cocotb.test()
+async def test_output_bytes(dut):
+    await setup(dut)
+
+    payload = [0x11, 0x22, 0x33, 0x44]
+    recieved = []
+    lasts = []
+
+    for byte in [0x55] * 7 + [0xD5]:
+        await send_and_collect(dut, 1, byte, recieved, lasts)
+        assert recieved == [], f"output during preamble: {recieved}"
+
+    for byte in payload:
+            await send_and_collect(dut, 1, byte, recieved, lasts)
+    for _ in range(3):
+            await send_and_collect(dut, 0, 0x00, recieved, lasts)
+    assert recieved == payload, f"bytes: got {[hex(b) for b in recieved]}"
+    assert lasts == [0, 0, 0, 1], f"last flags: got {lasts}"
+
+def make_frame(payload):
+    """Payload followed by its 4-byte Ethernet FCS (CRC-32, little-endian)."""
+    return payload + zlib.crc32(payload).to_bytes(4, "little")
+
+
+async def send_frame(dut, frame, er_index=None):
+    """Drive preamble + SFD + frame, then idle cycles. Returns (bytes, lasts, bads)."""
+    received, lasts, bads = [], [], []
+
+    async def tick(dv, byte, er=0):
+        dut.gmii_rx_er.value = er
+        await send_byte(dut, dv, byte)
+        if int(dut.m_valid.value) == 1:
+            received.append(int(dut.m_data.value))
+            lasts.append(int(dut.m_last.value))
+            bads.append(int(dut.m_bad.value))
+
+    for byte in [0x55] * 7 + [0xD5]:
+        await tick(1, byte)
+    for i, byte in enumerate(frame):
+        await tick(1, byte, 1 if i == er_index else 0)
+    for _ in range(3):
+        await tick(0, 0x00)
+    return received, lasts, bads
+
+
+@cocotb.test()
+async def test_crc_good_frame(dut):
+    await setup(dut)
+    for length in [1, 10, 46, 100]:
+        frame = make_frame(random.randbytes(length))
+        received, lasts, bads = await send_frame(dut, frame)
+        assert received == list(frame), f"len={length}: bytes differ"
+        assert lasts[-1] == 1 and sum(lasts) == 1, f"len={length}: lasts={lasts}"
+        assert bads[-1] == 0, f"len={length}: good frame flagged bad"
+
+
+@cocotb.test()
+async def test_crc_bit_flip(dut):
+    await setup(dut)
+    for _ in range(20):
+        frame = bytearray(make_frame(random.randbytes(60)))
+        pos = random.randrange(len(frame))
+        frame[pos] ^= 1 << random.randrange(8)   # flip one random bit
+        received, lasts, bads = await send_frame(dut, bytes(frame))
+        assert bads[-1] == 1, f"bit flip at byte {pos} not detected"
+
+
+@cocotb.test()
+async def test_rx_er(dut):
+    await setup(dut)
+    frame = make_frame(random.randbytes(60))      # CRC is correct...
+    received, lasts, bads = await send_frame(dut, frame, er_index=20)
+    assert bads[-1] == 1, "rx_er during frame not flagged"   # ...but rx_er marks it bad
