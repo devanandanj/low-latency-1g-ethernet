@@ -1,8 +1,10 @@
 # Low Latency 1G Ethernet
 
+[![tests](https://github.com/devanandanj/low-latency-1g-ethernet/actions/workflows/tests.yml/badge.svg)](https://github.com/devanandanj/low-latency-1g-ethernet/actions/workflows/tests.yml)
+
 GMII to UDP payload in 0 added cycles. Plus a MAC TX.
 
-Simulation only. Front end for a NASDAQ ITCH orderbook engine.
+Simulation only. Planned front end for a NASDAQ ITCH orderbook engine.
 
 ---
 
@@ -12,7 +14,9 @@ Simulation only. Front end for a NASDAQ ITCH orderbook engine.
 |---|---|
 | Logic, per payload byte | 0 cycles |
 | Wire, before first payload byte | 400 ns |
-| Frame verdict (`m_bad`) | 1 cycle after frame end |
+| Frame verdict (`m_bad`) | 2 cycles after last byte |
+
+![m_valid rises on the first payload byte, m_data matches gmii_rxd in the same cycle](docs/latency.png)
 
 Speculative cut-through: bytes are forwarded before the CRC is known.
 The consumer rolls back on `m_bad`.
