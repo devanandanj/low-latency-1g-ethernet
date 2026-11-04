@@ -1,7 +1,12 @@
-// Ethernet RX module
-// github/devanandanj
+/*
+ *
+ *   Ethernet RX module
+ *   github/devanandanj
+ *
+ *
+ */
 
-`default_nettype none
+ `default_nettype none
 
 module ethernet_rx (
     input logic gmii_rx_clk,
@@ -18,6 +23,7 @@ module ethernet_rx (
 );
 
   localparam logic [31:0] CRC_RESIDUE = 32'hDEBB20E3;
+  localparam logic [6:0] MIN_FRAME = 7'd64;  // including FCS
 
   typedef enum logic [1:0] {
     IDLE,
@@ -31,6 +37,7 @@ module ethernet_rx (
   logic [31:0] crc_reg;
   logic [31:0] crc_next;
   logic err_seen;
+  logic [6:0] frame_len;  // stops counting at MIN_FRAME
 
   crc32 u_crc (
       .data_in    (gmii_rxd),
@@ -47,6 +54,7 @@ module ethernet_rx (
       state <= IDLE;
       crc_reg <= 32'hFFFFFFFF;
       err_seen <= 1'b0;
+      frame_len <= '0;
       m_eof <= 1'b0;
       m_bad <= 1'b0;
     end else begin
@@ -56,6 +64,7 @@ module ethernet_rx (
         IDLE: begin
           crc_reg    <= 32'hFFFFFFFF;
           err_seen   <= 1'b0;
+          frame_len  <= '0;
           if (gmii_rx_dv) begin
             if (gmii_rxd == 8'h55) state <= PREAMBLE;
             else if (gmii_rxd == 8'hD5) state <= DATA;
@@ -71,10 +80,11 @@ module ethernet_rx (
         DATA: begin
           if (gmii_rx_dv) begin
             crc_reg <= crc_next;
+            if (frame_len < MIN_FRAME) frame_len <= frame_len + 1'b1;
             if (gmii_rx_er) err_seen <= 1'b1;
           end else begin
               m_eof   <= 1'b1;
-              m_bad   <= (crc_reg != CRC_RESIDUE) || err_seen;
+              m_bad   <= (crc_reg != CRC_RESIDUE) || err_seen || (frame_len < MIN_FRAME);
               state <= IDLE;
             end
           end

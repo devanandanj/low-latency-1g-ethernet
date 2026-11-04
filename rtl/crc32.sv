@@ -1,5 +1,10 @@
-// CRC Module
-// github/devanandanj
+/*
+ *
+ *   Ethernet crc32
+ *   github/devanandanj
+ *
+ *
+ */
 
 `default_nettype none
 
