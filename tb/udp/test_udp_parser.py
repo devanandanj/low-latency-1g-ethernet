@@ -122,7 +122,7 @@ async def test_length_too_large(dut):
 
 
 @cocotb.test()
-async def test_next_after_length_too_large(dut):
+async def test_trailer_clears_between_frames(dut):
     """The trailer count must clear between frames."""
     await setup(dut)
     mon = Monitor()
