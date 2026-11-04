@@ -1,0 +1,22 @@
+name: tests
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y verilator zlib1g-dev
+      - run: pip install cocotb==1.9.2
+      - name: Run all suites
+        run: |
+          for suite in tb/*/; do
+            make -C "$suite" || exit 1
+          done
+      # cocotb's make exits 0 when tests fail, so read the results instead
+      - name: Check results
+        run: "! grep -E '<(failure|error)' tb/*/results.xml"
