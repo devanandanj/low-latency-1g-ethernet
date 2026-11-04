@@ -191,12 +191,24 @@ async def test_latency(dut):
 @cocotb.test()
 async def test_crc_good_frame(dut):
     await setup(dut)
-    for length in [1, 10, 46, 100]:
+    for length in [60, 61, 100, 1500]:
         mon = Monitor()
         frame = make_frame(random.randbytes(length))
         await send_frame(dut, frame, mon)
         assert mon.data == list(frame), f"len={length}: bytes differ"
         assert mon.eofs == [0], f"len={length}: eofs={mon.eofs}"
+
+
+@cocotb.test()
+async def test_runt(dut):
+    """Valid CRC but under 64 bytes with FCS: bytes pass, frame ends bad."""
+    await setup(dut)
+    for length in [1, 10, 46, 59]:
+        mon = Monitor()
+        frame = make_frame(random.randbytes(length))
+        await send_frame(dut, frame, mon)
+        assert mon.data == list(frame), f"len={length}: bytes differ"
+        assert mon.eofs == [1], f"len={length}: runt not flagged"
 
 
 @cocotb.test()
@@ -225,8 +237,8 @@ async def test_back_to_back(dut):
     """Two frames separated by the minimum 12-byte inter-frame gap."""
     await setup(dut)
     mon = Monitor()
-    f1 = make_frame(random.randbytes(46))
-    f2 = make_frame(random.randbytes(46))
+    f1 = make_frame(random.randbytes(60))
+    f2 = make_frame(random.randbytes(60))
     await send_frame(dut, f1, mon, gap=12)
     await send_frame(dut, f2, mon, gap=3)
     assert mon.data == list(f1) + list(f2), "bytes of the two frames differ"
