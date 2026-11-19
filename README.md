@@ -4,7 +4,7 @@
 
 GMII to UDP payload in 0 added cycles. Plus a MAC TX.
 
-Simulation only. Planned front end for a NASDAQ ITCH orderbook engine.
+Front end of [hardware-orderbook](https://github.com/devanandanj/hardware-orderbook), an FPGA NASDAQ ITCH order book.
 
 ---
 
@@ -48,7 +48,11 @@ cd tb/eth_stack && make
 
 ## Limits
 
-- Not yet on an FPGA or a real PHY. No timing results.
+- Not yet run on an FPGA or a real PHY. Meets timing at 125 MHz in ISE 14.7 on a Virtex-5 (XUPV5), built inside hardware-orderbook.
 - Bad frames are flagged, not blocked.
 - No maximum-length or IP total length check.
 - VLAN-tagged frames are dropped.
+
+## License
+
+BSD 3-Clause, see LICENSE.
