@@ -19,7 +19,8 @@ Front end of [hardware-orderbook](https://github.com/devanandanj/hardware-orderb
 ![m_valid rises on the first payload byte, m_data matches gmii_rxd in the same cycle](docs/latency.png)
 
 Speculative cut-through: bytes are forwarded before the CRC is known.
-The consumer rolls back on `m_bad`.
+The consumer decides what `m_bad` means for bytes it has already used;
+hardware-orderbook keeps them and flags its book as tainted.
 
 Earlier revisions: 2 cycles at the MAC. Store-and-forward would add
 176 ns on a 64-byte frame.
