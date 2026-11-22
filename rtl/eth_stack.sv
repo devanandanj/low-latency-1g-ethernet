@@ -11,7 +11,8 @@
 module eth_stack (
     input logic gmii_rx_clk,
     input logic gtx_clk,
-    input logic reset,
+    input logic rx_reset,   // synchronous to gmii_rx_clk
+    input logic tx_reset,   // synchronous to gtx_clk
 
     input logic [47:0] cfg_mac,
     input logic [31:0] cfg_ip,
@@ -53,7 +54,7 @@ module eth_stack (
 
   ethernet_rx u_rx (
       .gmii_rx_clk,
-      .reset,
+      .reset (rx_reset),
       .gmii_rxd,
       .gmii_rx_dv,
       .gmii_rx_er,
@@ -65,7 +66,7 @@ module eth_stack (
 
   ethernet_parser u_eth (
       .gmii_rx_clk,
-      .reset,
+      .reset (rx_reset),
       .cfg_mac,
       .s_data (mac_data),
       .s_valid(mac_valid),
@@ -79,7 +80,7 @@ module eth_stack (
 
   ipv4_parser u_ipv4 (
       .gmii_rx_clk,
-      .reset,
+      .reset (rx_reset),
       .cfg_ip,
       .s_data (eth_data),
       .s_valid(eth_valid),
@@ -93,7 +94,7 @@ module eth_stack (
 
   udp_parser u_udp (
       .gmii_rx_clk,
-      .reset,
+      .reset (rx_reset),
       .cfg_port,
       .s_data (ip_data),
       .s_valid(ip_valid),
@@ -105,7 +106,17 @@ module eth_stack (
       .m_bad
   );
 
-  ethernet_tx u_tx (.*);
+  ethernet_tx u_tx (
+      .gtx_clk,
+      .reset (tx_reset),
+      .s_data,
+      .s_valid,
+      .s_last,
+      .s_ready,
+      .gmii_txd,
+      .gmii_tx_en,
+      .gmii_tx_er
+  );
 
 endmodule
 

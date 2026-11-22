@@ -38,10 +38,13 @@ async def setup(dut):
     dut.s_data.value = 0
     dut.s_valid.value = 0
     dut.s_last.value = 0
-    dut.reset.value = 1
+    dut.rx_reset.value = 1
+    dut.tx_reset.value = 1
     await RisingEdge(dut.gmii_rx_clk)
     await RisingEdge(dut.gmii_rx_clk)
-    dut.reset.value = 0
+    dut.rx_reset.value = 0
+    await RisingEdge(dut.gtx_clk)
+    dut.tx_reset.value = 0
 
 
 class Monitor:
